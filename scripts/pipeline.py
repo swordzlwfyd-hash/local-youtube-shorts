@@ -119,6 +119,8 @@ def translate_segments(segments: list[Segment], source: str, target: str) -> lis
     translated = []
     for index, item in enumerate(segments, 1):
         text = translator.translate(item.text)
+        text = re.sub(r"\{\\[^}]*\}", "", text)
+        text = re.sub(r"\s*\{\\.*$", "", text)
         translated.append(Segment(item.start, item.end, text.strip() or item.text))
         if index % 25 == 0:
             print(f"Translated {index}/{len(segments)} subtitle segments", flush=True)
