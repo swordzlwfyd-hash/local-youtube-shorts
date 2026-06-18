@@ -49,14 +49,15 @@ def is_url(value: str) -> bool:
     return urlparse(value).scheme in {"http", "https"}
 
 
-def resolve_source(source: str, work: Path) -> tuple[Path, bool]:
+def resolve_source(source: str, work: Path, aspect_ratio: str) -> tuple[Path, bool]:
     local = Path(source).expanduser()
     if local.exists():
         return local.resolve(), False
     if not is_url(source):
         raise FileNotFoundError(f"Source is neither a file nor an HTTP URL: {source}")
     template = str(work / "source.%(ext)s")
-    command = ["yt-dlp", "--no-playlist", "--merge-output-format", "mp4", "-f", "bv*+ba/b"]
+    video_format = "bv*[height<=1080]+ba/b[height<=1080]" if aspect_ratio == "original" else "bv*+ba/b"
+    command = ["yt-dlp", "--no-playlist", "--merge-output-format", "mp4", "-f", video_format]
     if shutil.which("node"):
         command.extend(["--js-runtimes", "node"])
     command.extend(["-o", template, source])
@@ -206,16 +207,19 @@ def ass_escape(text: str) -> str:
     return text.replace("\\", r"\\").replace("{", r"\{").replace("}", r"\}").replace("\n", r"\N")
 
 
-def write_ass(path: Path, candidate: Candidate, segments: list[Segment]) -> None:
-    header = """[Script Info]
+def write_ass(path: Path, candidate: Candidate, segments: list[Segment], width: int = 1080, height: int = 1920) -> None:
+    landscape = width > height
+    font_size = 48 if landscape else 58
+    margin_v = 65 if landscape else 190
+    header = f"""[Script Info]
 ScriptType: v4.00+
-PlayResX: 1080
-PlayResY: 1920
+PlayResX: {width}
+PlayResY: {height}
 WrapStyle: 0
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Default,Microsoft YaHei,58,&H00FFFFFF,&H000000FF,&H00101010,&H80000000,-1,0,0,0,100,100,0,0,1,4,1,2,70,70,190,1
+Style: Default,Microsoft YaHei,{font_size},&H00FFFFFF,&H000000FF,&H00101010,&H80000000,-1,0,0,0,100,100,0,0,1,3,1,2,100,100,{margin_v},1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
@@ -258,14 +262,18 @@ def clean_title(text: str, rank: int) -> str:
     return (title[:55] or f"Highlight {rank}").strip()
 
 
-def render(video: Path, out_dir: Path, candidate: Candidate, segments: list[Segment], info: dict, rank: int, face_crop: bool) -> Path:
+def render(video: Path, out_dir: Path, candidate: Candidate, segments: list[Segment], info: dict, rank: int, face_crop: bool, aspect_ratio: str) -> Path:
     clip_dir = out_dir / f"clip-{rank:02d}"
     clip_dir.mkdir(parents=True, exist_ok=True)
     ass = clip_dir / "subtitles.ass"
     output = clip_dir / f"short-{rank:02d}.mp4"
-    write_ass(ass, candidate, segments)
-    face_x = detect_face_center(video, candidate, info["width"]) if face_crop else None
-    filters = crop_filter(info["width"], info["height"], face_x) + ",subtitles=subtitles.ass"
+    if aspect_ratio == "original":
+        write_ass(ass, candidate, segments, info["width"], info["height"])
+        filters = "subtitles=subtitles.ass"
+    else:
+        write_ass(ass, candidate, segments)
+        face_x = detect_face_center(video, candidate, info["width"]) if face_crop else None
+        filters = crop_filter(info["width"], info["height"], face_x) + ",subtitles=subtitles.ass"
     run([
         "ffmpeg", "-y", "-ss", f"{candidate.start:.3f}", "-i", str(video),
         "-t", f"{candidate.end - candidate.start:.3f}", "-vf", filters,
@@ -285,6 +293,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--model", default="small")
     parser.add_argument("--language")
     parser.add_argument("--subtitle-language")
+    parser.add_argument("--aspect-ratio", choices=["portrait", "original"], default="portrait")
     parser.add_argument("--no-face-crop", action="store_true")
     parser.add_argument("--keep-source", action="store_true")
     return parser.parse_args()
@@ -298,7 +307,7 @@ def main() -> int:
     out_dir.mkdir(parents=True, exist_ok=True)
     work = out_dir / ".work"
     work.mkdir(exist_ok=True)
-    video, downloaded = resolve_source(args.source, work)
+    video, downloaded = resolve_source(args.source, work, args.aspect_ratio)
     info = probe(video)
     segments, language = transcribe(video, args.model, args.language)
     subtitle_language = args.subtitle_language or language
@@ -306,7 +315,7 @@ def main() -> int:
     selected = choose(build_candidates(segments, args.min_duration, args.max_duration), args.num_clips)
     results = []
     for rank, candidate in enumerate(selected, 1):
-        output = render(video, out_dir, candidate, segments, info, rank, not args.no_face_crop)
+        output = render(video, out_dir, candidate, segments, info, rank, not args.no_face_crop, args.aspect_ratio)
         results.append({
             "rank": rank,
             "score": round(candidate.score, 2),
@@ -321,6 +330,7 @@ def main() -> int:
         "language": language,
         "subtitle_language": subtitle_language,
         "model": args.model,
+        "aspect_ratio": args.aspect_ratio,
         "video_duration": info["duration"],
         "clips": results,
     }

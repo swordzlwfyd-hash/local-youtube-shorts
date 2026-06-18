@@ -3,6 +3,7 @@ __pycache__/
 *.py[cod]
 .work/
 outputs/
+outputs*/
 shorts-output/
 *.mp4
 *.webm

@@ -1,6 +1,6 @@
 ---
 name: local-youtube-shorts
-description: Generate ranked vertical short videos entirely on the local machine from YouTube URLs, hosted videos, or local media files. Use when Codex needs to download or ingest a long video, transcribe it with local Whisper, select highlight segments, crop them to 9:16 around detected faces, burn Chinese or multilingual subtitles, and export YouTube Shorts, TikTok, or Reels without paid APIs.
+description: Generate ranked short videos entirely on the local machine from YouTube URLs, hosted videos, or local media files. Use when Codex needs to download or ingest a long video, transcribe it with local Whisper, select highlight segments, preserve the original landscape composition or crop to 9:16 around detected faces, burn Chinese or multilingual subtitles, and export social clips without paid APIs.
 ---
 
 # Local YouTube Shorts
@@ -20,6 +20,8 @@ Use PowerShell:
 
 Defaults: `small` Whisper model, CPU `int8`, 30-60 second clips, 3 outputs, `9:16`, burned subtitles. Pass `-Language zh` to force Chinese recognition or omit it for automatic detection. Pass `-SubtitleLanguage zh` to translate foreign speech into Chinese with a locally cached Argos Translate model.
 
+Pass `-AspectRatio original` to preserve the source composition and limit YouTube downloads to 1080p. Use this for 16:9 landscape clips.
+
 For a quicker CPU run, pass `-Model base`. For better transcription, pass `-Model medium`; warn that it is slower and downloads a larger model.
 
 ## Workflow
@@ -38,6 +40,7 @@ For a quicker CPU run, pass `-Model base`. For better transcription, pass `-Mode
 - `-Model tiny|base|small|medium|large-v3`: local Whisper model.
 - `-Language <code>`: force a language, such as `zh`, `en`, or `ja`.
 - `-SubtitleLanguage <code>`: locally translate subtitles to a target language such as `zh`; the free translation model downloads once and is then cached.
+- `-AspectRatio portrait|original`: use `portrait` for 9:16 face-aware crops or `original` to preserve the source composition.
 - `-NoFaceCrop`: use geometric center instead of local face detection.
 - `-KeepSource`: preserve the downloaded/intermediate source video.
 

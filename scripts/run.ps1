@@ -7,6 +7,7 @@ param(
     [ValidateSet("tiny", "base", "small", "medium", "large-v3")][string]$Model = "small",
     [string]$Language = "",
     [string]$SubtitleLanguage = "",
+    [ValidateSet("portrait", "original")][string]$AspectRatio = "portrait",
     [switch]$NoFaceCrop,
     [switch]$KeepSource
 )
@@ -56,6 +57,7 @@ $argsList = @(
     "--min-duration", $MinDuration,
     "--max-duration", $MaxDuration,
     "--model", $Model
+    "--aspect-ratio", $AspectRatio
 )
 if ($Language) { $argsList += @("--language", $Language) }
 if ($SubtitleLanguage) { $argsList += @("--subtitle-language", $SubtitleLanguage) }
