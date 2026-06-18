@@ -56,7 +56,11 @@ def resolve_source(source: str, work: Path) -> tuple[Path, bool]:
     if not is_url(source):
         raise FileNotFoundError(f"Source is neither a file nor an HTTP URL: {source}")
     template = str(work / "source.%(ext)s")
-    run(["yt-dlp", "--no-playlist", "--merge-output-format", "mp4", "-f", "bv*+ba/b", "-o", template, source])
+    command = ["yt-dlp", "--no-playlist", "--merge-output-format", "mp4", "-f", "bv*+ba/b"]
+    if shutil.which("node"):
+        command.extend(["--js-runtimes", "node"])
+    command.extend(["-o", template, source])
+    run(command)
     matches = sorted(work.glob("source.*"))
     if not matches:
         raise RuntimeError("yt-dlp completed without creating a source file")
@@ -85,6 +89,39 @@ def transcribe(video: Path, model_name: str, language: str | None) -> tuple[list
     if not segments:
         raise RuntimeError("Whisper did not find any spoken content")
     return segments, info.language
+
+
+def translate_segments(segments: list[Segment], source: str, target: str) -> list[Segment]:
+    if source.split("-")[0] == target.split("-")[0]:
+        return segments
+    import argostranslate.package
+    import argostranslate.translate
+
+    source = source.split("-")[0]
+    target = target.split("-")[0]
+    installed = argostranslate.translate.get_installed_languages()
+    from_lang = next((x for x in installed if x.code == source), None)
+    to_lang = next((x for x in installed if x.code == target), None)
+    translator = from_lang.get_translation(to_lang) if from_lang and to_lang else None
+    if translator is None:
+        print(f"Downloading offline translation model {source}->{target}...", flush=True)
+        argostranslate.package.update_package_index()
+        packages = argostranslate.package.get_available_packages()
+        package = next((x for x in packages if x.from_code == source and x.to_code == target), None)
+        if package is None:
+            raise RuntimeError(f"No Argos Translate model is available for {source}->{target}")
+        argostranslate.package.install_from_path(package.download())
+        installed = argostranslate.translate.get_installed_languages()
+        from_lang = next(x for x in installed if x.code == source)
+        to_lang = next(x for x in installed if x.code == target)
+        translator = from_lang.get_translation(to_lang)
+    translated = []
+    for index, item in enumerate(segments, 1):
+        text = translator.translate(item.text)
+        translated.append(Segment(item.start, item.end, text.strip() or item.text))
+        if index % 25 == 0:
+            print(f"Translated {index}/{len(segments)} subtitle segments", flush=True)
+    return translated
 
 
 def text_score(text: str, duration: float, segment_count: int) -> float:
@@ -247,6 +284,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-duration", type=float, default=60)
     parser.add_argument("--model", default="small")
     parser.add_argument("--language")
+    parser.add_argument("--subtitle-language")
     parser.add_argument("--no-face-crop", action="store_true")
     parser.add_argument("--keep-source", action="store_true")
     return parser.parse_args()
@@ -263,6 +301,8 @@ def main() -> int:
     video, downloaded = resolve_source(args.source, work)
     info = probe(video)
     segments, language = transcribe(video, args.model, args.language)
+    subtitle_language = args.subtitle_language or language
+    segments = translate_segments(segments, language, subtitle_language)
     selected = choose(build_candidates(segments, args.min_duration, args.max_duration), args.num_clips)
     results = []
     for rank, candidate in enumerate(selected, 1):
@@ -279,6 +319,7 @@ def main() -> int:
     summary = {
         "source": args.source,
         "language": language,
+        "subtitle_language": subtitle_language,
         "model": args.model,
         "video_duration": info["duration"],
         "clips": results,

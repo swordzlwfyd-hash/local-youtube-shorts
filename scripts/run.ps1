@@ -6,11 +6,14 @@ param(
     [ValidateRange(10, 180)][int]$MaxDuration = 60,
     [ValidateSet("tiny", "base", "small", "medium", "large-v3")][string]$Model = "small",
     [string]$Language = "",
+    [string]$SubtitleLanguage = "",
     [switch]$NoFaceCrop,
     [switch]$KeepSource
 )
 
 $ErrorActionPreference = "Stop"
+$env:PYTHONUTF8 = "1"
+$env:PYTHONIOENCODING = "utf-8"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $SkillDir = Split-Path -Parent $ScriptDir
 $VenvDir = Join-Path $SkillDir ".venv"
@@ -37,6 +40,13 @@ if (-not $DependenciesReady) {
     & $Python -m pip install --upgrade pip
     & $Python -m pip install "faster-whisper>=1.1,<2" "opencv-python-headless>=4.10,<5"
 }
+if ($SubtitleLanguage) {
+    & $Python -c "import argostranslate" 2>$null
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "Installing local subtitle translation dependencies..."
+        & $Python -m pip install "argostranslate>=1.9,<2"
+    }
+}
 
 $argsList = @(
     (Join-Path $ScriptDir "pipeline.py"),
@@ -48,6 +58,7 @@ $argsList = @(
     "--model", $Model
 )
 if ($Language) { $argsList += @("--language", $Language) }
+if ($SubtitleLanguage) { $argsList += @("--subtitle-language", $SubtitleLanguage) }
 if ($NoFaceCrop) { $argsList += "--no-face-crop" }
 if ($KeepSource) { $argsList += "--keep-source" }
 

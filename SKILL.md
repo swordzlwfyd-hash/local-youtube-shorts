@@ -18,7 +18,7 @@ Use PowerShell:
   -NumClips 3
 ```
 
-Defaults: `small` Whisper model, CPU `int8`, 30-60 second clips, 3 outputs, `9:16`, burned subtitles. Pass `-Language zh` to force Chinese or omit it for automatic detection.
+Defaults: `small` Whisper model, CPU `int8`, 30-60 second clips, 3 outputs, `9:16`, burned subtitles. Pass `-Language zh` to force Chinese recognition or omit it for automatic detection. Pass `-SubtitleLanguage zh` to translate foreign speech into Chinese with a locally cached Argos Translate model.
 
 For a quicker CPU run, pass `-Model base`. For better transcription, pass `-Model medium`; warn that it is slower and downloads a larger model.
 
@@ -37,6 +37,7 @@ For a quicker CPU run, pass `-Model base`. For better transcription, pass `-Mode
 - `-MinDuration <seconds>` and `-MaxDuration <seconds>`: candidate duration bounds.
 - `-Model tiny|base|small|medium|large-v3`: local Whisper model.
 - `-Language <code>`: force a language, such as `zh`, `en`, or `ja`.
+- `-SubtitleLanguage <code>`: locally translate subtitles to a target language such as `zh`; the free translation model downloads once and is then cached.
 - `-NoFaceCrop`: use geometric center instead of local face detection.
 - `-KeepSource`: preserve the downloaded/intermediate source video.
 
