@@ -1,0 +1,55 @@
+param(
+    [Parameter(Mandatory = $true)][string]$Source,
+    [string]$OutputDir = (Join-Path (Get-Location) "shorts-output"),
+    [ValidateRange(1, 20)][int]$NumClips = 3,
+    [ValidateRange(10, 180)][int]$MinDuration = 30,
+    [ValidateRange(10, 180)][int]$MaxDuration = 60,
+    [ValidateSet("tiny", "base", "small", "medium", "large-v3")][string]$Model = "small",
+    [string]$Language = "",
+    [switch]$NoFaceCrop,
+    [switch]$KeepSource
+)
+
+$ErrorActionPreference = "Stop"
+$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$SkillDir = Split-Path -Parent $ScriptDir
+$VenvDir = Join-Path $SkillDir ".venv"
+$Python = Join-Path $VenvDir "Scripts\python.exe"
+
+foreach ($tool in @("ffmpeg", "ffprobe", "yt-dlp", "python")) {
+    if (-not (Get-Command $tool -ErrorAction SilentlyContinue)) {
+        throw "Required command not found: $tool"
+    }
+}
+
+if (-not (Test-Path $Python)) {
+    Write-Host "Creating private Python environment..."
+    python -m venv $VenvDir
+}
+
+$DependenciesReady = $false
+if (Test-Path $Python) {
+    & $Python -c "import faster_whisper, cv2" 2>$null
+    $DependenciesReady = ($LASTEXITCODE -eq 0)
+}
+if (-not $DependenciesReady) {
+    Write-Host "Installing local transcription and face-detection dependencies..."
+    & $Python -m pip install --upgrade pip
+    & $Python -m pip install "faster-whisper>=1.1,<2" "opencv-python-headless>=4.10,<5"
+}
+
+$argsList = @(
+    (Join-Path $ScriptDir "pipeline.py"),
+    "--source", $Source,
+    "--output-dir", $OutputDir,
+    "--num-clips", $NumClips,
+    "--min-duration", $MinDuration,
+    "--max-duration", $MaxDuration,
+    "--model", $Model
+)
+if ($Language) { $argsList += @("--language", $Language) }
+if ($NoFaceCrop) { $argsList += "--no-face-crop" }
+if ($KeepSource) { $argsList += "--keep-source" }
+
+& $Python @argsList
+if ($LASTEXITCODE -ne 0) { throw "Shorts pipeline failed with exit code $LASTEXITCODE" }
