@@ -1,54 +1,67 @@
 ---
 name: local-youtube-shorts
-description: Generate ranked short videos entirely on the local machine from YouTube URLs, hosted videos, or local media files. Use when Codex needs to download or ingest a long video, transcribe it with local Whisper, select highlight segments, preserve the original landscape composition or crop to 9:16 around detected faces, burn Chinese or multilingual subtitles, and export social clips without paid APIs.
+description: Generate viral-ranked short clips entirely on the local machine from YouTube URLs, hosted videos, or local media. Use when Codex needs to transcribe long-form video with local Whisper, automatically scale clip count by source duration, find strong hooks and payoff moments, diversify selections across the full timeline, preserve the original landscape composition or crop to 9:16, translate subtitles locally, and export social clips without paid APIs.
 ---
 
 # Local YouTube Shorts
 
-Create short-form clips without paid APIs. The first run installs local Python dependencies into this skill's private `.venv`; Whisper models are cached locally after download.
+Create high-retention clips without paid APIs. The first run installs dependencies into the private `.venv`; Whisper and translation models are cached locally.
 
 ## Run
 
-Use PowerShell:
+Use automatic viral selection by default:
 
 ```powershell
 & "$HOME\.codex\skills\local-youtube-shorts\scripts\run.ps1" `
   -Source "<YouTube URL or local video>" `
   -OutputDir "<output directory>" `
-  -NumClips 3
+  -SubtitleLanguage zh
 ```
 
-Defaults: `small` Whisper model, CPU `int8`, 30-60 second clips, 3 outputs, `9:16`, burned subtitles. Pass `-Language zh` to force Chinese recognition or omit it for automatic detection. Pass `-SubtitleLanguage zh` to translate foreign speech into Chinese with a locally cached Argos Translate model.
+Defaults: original composition up to 1080p, 25-55 second clips, `small` Whisper on CPU, automatic clip count, and burned subtitles.
 
-Pass `-AspectRatio original` to preserve the source composition and limit YouTube downloads to 1080p. Use this for 16:9 landscape clips.
+Automatic clip targets: up to 6 minutes = 3; 12 minutes = 5; 20 minutes = 6; 30 minutes = 8; 45 minutes = 10; 60 minutes = 12; longer sources scale to a maximum of 20.
 
-For a quicker CPU run, pass `-Model base`. For better transcription, pass `-Model medium`; warn that it is slower and downloads a larger model.
+## Selection
+
+Rank candidates on a 100-point virality score using:
+
+- Opening hook and direct address.
+- Questions, concrete numbers, and named specifics.
+- Conflict, contrast, emotion, and contrarian claims.
+- Clear payoff or conclusion near the end.
+- Information density, complete phrasing, and suitable duration.
+- Per-second voice energy, emphasizing strongly delivered moments.
+- Penalties for filler, repetition, weak openings, and fragments.
+
+Use diversity-aware selection to avoid overlapping clips, repeated topics, and highlights clustered in one part of a long video.
 
 ## Workflow
 
 1. Confirm `ffmpeg`, `ffprobe`, `yt-dlp`, and Python are available.
-2. Run `scripts/run.ps1` with the user's source and requested output directory.
-3. Let the script finish; the first model download can take several minutes.
-4. Read `summary.json` from the output directory.
-5. Report each clip's rank, score, time range, title, transcript excerpt, and local MP4 path.
-6. Never claim clips exist until their MP4 files and `summary.json` are present.
+2. Run `scripts/run.ps1` with the source and output directory.
+3. Read `summary.json` and report rank, score, time range, hook, reason, title, and MP4 path.
+4. Use `ranking.json` to inspect the top 100 candidates and score breakdowns.
+5. Keep `transcript.json` for later review or reranking.
+6. Never claim clips exist until their MP4 files and summary parse successfully.
 
 ## Options
 
-- `-NumClips <n>`: requested clip count.
-- `-MinDuration <seconds>` and `-MaxDuration <seconds>`: candidate duration bounds.
-- `-Model tiny|base|small|medium|large-v3`: local Whisper model.
-- `-Language <code>`: force a language, such as `zh`, `en`, or `ja`.
-- `-SubtitleLanguage <code>`: locally translate subtitles to a target language such as `zh`; the free translation model downloads once and is then cached.
-- `-AspectRatio portrait|original`: use `portrait` for 9:16 face-aware crops or `original` to preserve the source composition.
-- `-NoFaceCrop`: use geometric center instead of local face detection.
-- `-KeepSource`: preserve the downloaded/intermediate source video.
+- `-NumClips 0`: automatic count; pass `1-30` to override.
+- `-MinDuration <seconds>` and `-MaxDuration <seconds>`: override clip duration bounds.
+- `-Model tiny|base|small|medium|large-v3`: choose speed versus transcription quality.
+- `-Language <code>`: force source recognition language.
+- `-SubtitleLanguage <code>`: locally translate subtitles, such as `zh`.
+- `-TranscriptFile <path>`: reuse a prior `transcript.json` and skip Whisper for fast reranking.
+- `-AspectRatio original|portrait`: preserve source composition or create 9:16 face-aware crops.
+- `-NoFaceCrop`: use geometric center for portrait output.
+- `-KeepSource`: preserve the downloaded source for manual reruns.
 
-If fewer non-overlapping high-quality candidates exist, return fewer clips rather than padding the result.
+Return fewer clips only when there are not enough non-overlapping candidates above the quality floor. Do not pad with fragments or duplicate topics.
 
 ## Failure Handling
 
-- If YouTube blocks a download, surface the `yt-dlp` error and suggest a local file.
+- If YouTube blocks a download, retry with current `yt-dlp` and Node.js, then surface the exact error.
 - If memory is insufficient, retry with `-Model base` or `-Model tiny`.
-- If face detection finds nothing, the pipeline automatically uses a centered crop.
-- If subtitle rendering fails because of a missing font, the ASS renderer falls back to an installed sans-serif font.
+- If face detection finds nothing, use a centered crop.
+- If local translation has no model for the language pair, surface the unsupported pair and do not claim translated subtitles.

@@ -1,13 +1,14 @@
 param(
     [Parameter(Mandatory = $true)][string]$Source,
     [string]$OutputDir = (Join-Path (Get-Location) "shorts-output"),
-    [ValidateRange(1, 20)][int]$NumClips = 3,
-    [ValidateRange(10, 180)][int]$MinDuration = 30,
-    [ValidateRange(10, 180)][int]$MaxDuration = 60,
+    [ValidateRange(0, 30)][int]$NumClips = 0,
+    [ValidateRange(10, 180)][int]$MinDuration = 25,
+    [ValidateRange(10, 180)][int]$MaxDuration = 55,
     [ValidateSet("tiny", "base", "small", "medium", "large-v3")][string]$Model = "small",
     [string]$Language = "",
     [string]$SubtitleLanguage = "",
-    [ValidateSet("portrait", "original")][string]$AspectRatio = "portrait",
+    [string]$TranscriptFile = "",
+    [ValidateSet("portrait", "original")][string]$AspectRatio = "original",
     [switch]$NoFaceCrop,
     [switch]$KeepSource
 )
@@ -61,6 +62,7 @@ $argsList = @(
 )
 if ($Language) { $argsList += @("--language", $Language) }
 if ($SubtitleLanguage) { $argsList += @("--subtitle-language", $SubtitleLanguage) }
+if ($TranscriptFile) { $argsList += @("--transcript-file", $TranscriptFile) }
 if ($NoFaceCrop) { $argsList += "--no-face-crop" }
 if ($KeepSource) { $argsList += "--keep-source" }
 

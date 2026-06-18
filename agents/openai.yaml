@@ -1,4 +1,4 @@
 interface:
-  display_name: "本地 YouTube Shorts"
-  short_description: "完全在本机生成竖屏短视频、高光片段以及多语言字幕文件"
-  default_prompt: "使用 $local-youtube-shorts 将这个视频转换为带字幕的 9:16 高光短视频。"
+  display_name: "Local Viral Shorts"
+  short_description: "Rank long videos into high-retention local subtitle clips"
+  default_prompt: "Use $local-youtube-shorts to automatically extract enough diverse viral highlights from this long video."
