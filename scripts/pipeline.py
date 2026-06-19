@@ -190,7 +190,7 @@ def token_set(text: str) -> set[str]:
     return set(latin + han_bigrams)
 
 
-def score_candidate(text: str, duration: float, segment_count: int) -> Candidate:
+def score_candidate(text: str, duration: float, segment_count: int, target_duration: float) -> Candidate:
     cleaned = re.sub(r"\s+", " ", text).strip()
     opening = first_sentence(cleaned, 140)
     closing = cleaned[-180:]
@@ -218,7 +218,8 @@ def score_candidate(text: str, duration: float, segment_count: int) -> Candidate
     if re.match(r"^(and|but|so|because|然后|但是|所以|因为)\b", cleaned.lower()):
         structure_score -= 4.0
 
-    duration_score = max(0.0, 6.0 - abs(duration - 45.0) / 5.0)
+    duration_tolerance = max(5.0, target_duration * 0.12)
+    duration_score = max(0.0, 6.0 - abs(duration - target_duration) / duration_tolerance)
     repeated = re.findall(r"\b([a-z]{2,})\b", cleaned.lower())
     repetition_ratio = 1.0 - len(set(repeated)) / max(1, len(repeated)) if repeated else 0.0
     penalty = min(20.0, filler_hits * 2.5 + max(0.0, repetition_ratio - 0.55) * 20.0)
@@ -256,6 +257,7 @@ def natural_start(segments: list[Segment], index: int) -> bool:
 
 def build_candidates(segments: list[Segment], min_duration: float, max_duration: float) -> list[Candidate]:
     result: list[Candidate] = []
+    target_duration = (min_duration + max_duration) / 2.0
     for i, first in enumerate(segments):
         if not natural_start(segments, i):
             continue
@@ -271,7 +273,7 @@ def build_candidates(segments: list[Segment], min_duration: float, max_duration:
             if duration < max_duration - 4 and not re.search(r"[.!?。！？][\"'”’）)]?$", item.text.strip()):
                 continue
             text = " ".join(x.text for x in chosen)
-            scored = score_candidate(text, duration, len(chosen))
+            scored = score_candidate(text, duration, len(chosen), target_duration)
             scored.start = first.start
             scored.end = item.end
             possible.append(scored)
@@ -279,7 +281,7 @@ def build_candidates(segments: list[Segment], min_duration: float, max_duration:
     if not result:
         start, end = segments[0].start, min(segments[-1].end, segments[0].start + max_duration)
         text = " ".join(segment.text for segment in segments if segment.start < end)
-        candidate = score_candidate(text, end - start, len(segments))
+        candidate = score_candidate(text, end - start, len(segments), target_duration)
         candidate.start, candidate.end = start, end
         result.append(candidate)
     return result
@@ -492,8 +494,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--source", required=True)
     parser.add_argument("--output-dir", required=True)
     parser.add_argument("--num-clips", type=int, default=0, help="0 chooses a count from the source duration")
-    parser.add_argument("--min-duration", type=float, default=25)
-    parser.add_argument("--max-duration", type=float, default=55)
+    parser.add_argument("--min-duration", type=float, default=80)
+    parser.add_argument("--max-duration", type=float, default=100)
     parser.add_argument("--model", default="small")
     parser.add_argument("--language")
     parser.add_argument("--subtitle-language")

@@ -18,7 +18,7 @@ Use automatic viral selection by default:
   -SubtitleLanguage zh
 ```
 
-Defaults: original composition up to 1080p, 25-55 second clips, `small` Whisper on CPU, automatic clip count, and burned subtitles.
+Defaults: original composition up to 1080p, clips around 90 seconds (80-100 seconds), `small` Whisper on CPU, automatic clip count, and burned subtitles.
 
 Automatic clip targets: up to 6 minutes = 3; 12 minutes = 5; 20 minutes = 6; 30 minutes = 8; 45 minutes = 10; 60 minutes = 12; longer sources scale to a maximum of 20.
 
@@ -30,7 +30,7 @@ Rank candidates on a 100-point virality score using:
 - Questions, concrete numbers, and named specifics.
 - Conflict, contrast, emotion, and contrarian claims.
 - Clear payoff or conclusion near the end.
-- Information density, complete phrasing, and suitable duration.
+- Information density, complete phrasing, and proximity to the configured duration midpoint (90 seconds by default).
 - Per-second voice energy, emphasizing strongly delivered moments.
 - Penalties for filler, repetition, weak openings, and fragments.
 
@@ -48,7 +48,7 @@ Use diversity-aware selection to avoid overlapping clips, repeated topics, and h
 ## Options
 
 - `-NumClips 0`: automatic count; pass `1-30` to override.
-- `-MinDuration <seconds>` and `-MaxDuration <seconds>`: override clip duration bounds.
+- `-MinDuration <seconds>` and `-MaxDuration <seconds>`: override clip duration bounds; ranking automatically targets their midpoint.
 - `-Model tiny|base|small|medium|large-v3`: choose speed versus transcription quality.
 - `-Language <code>`: force source recognition language.
 - `-SubtitleLanguage <code>`: locally translate subtitles, such as `zh`.
