@@ -154,6 +154,10 @@ def translate_segments(segments: list[Segment], source: str, target: str) -> lis
         from_lang = next(x for x in installed if x.code == source)
         to_lang = next(x for x in installed if x.code == target)
         translator = from_lang.get_translation(to_lang)
+    # Whisper already provides short timestamped segments. Bypass Argos sentence
+    # detection so translation remains fully offline and preserves those timings.
+    if hasattr(translator, "sentencizer"):
+        translator.sentencizer.split_sentences = lambda text: [text]
     translated = []
     for index, item in enumerate(segments, 1):
         text = translator.translate(item.text)
